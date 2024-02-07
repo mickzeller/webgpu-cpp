@@ -1,14 +1,25 @@
-# Basic Triangle with WebGPU
+#  GPGPU possibilities using [WebGPU API](https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API)
 
-This is a simple cross-platform application that presents a basic usage of the WebGPU API to render a triangle on screen.
+## WebGPU in a nutshell
+WebGPU is the hot new item of web APIs focused on unlocking a computer's hidden muscle, the GPU. Here's what it brings to the party:
+
+- Performance Boost:️ Get ready for lightning-fast rendering and smooth animations! Even complex calculations will be a breeze for your GPU.
+- Advanced Features: Unlock fancy graphics techniques like realistic lighting and mind-blowing effects ✨ that were impossible before.
+- Developer Friendly: Writing code for WebGPU is more accessible and safer than the old ways—no more endless lines of code or worrying about security leaks.
+- Future-Proof: WebGPU adapts to new hardware like a chameleon, so your code stays relevant even as technology evolves.
+
+So, what does it all mean? WebGPU gives your web browser superpowers, making it faster, more capable, and ready to handle even the most demanding tasks. It's not just about fancy graphics; it's about opening doors to immersive experiences, complex calculations, and maybe even machine learning directly in the browser!
+While still under development, the potential is massive. WebGPU is poised to shape the future of web graphics and computation, and you don't want to miss the ride!
 
 ## Dependencies
 - [WebGPU API](https://github.com/webgpu-native/webgpu-headers)
 - [GLFW](https://www.glfw.org/)
+- [emscripten](https://emscripten.org/)
 
 The project has the following dependencies:
 - WebGPU API: This is a next-generation graphics and compute API.
 - GLFW: A multi-platform library for OpenGL, OpenGL ES, Vulkan, window and input.
+- 
 
 ## Shader language
 
@@ -16,7 +27,7 @@ The shaders are written in WebGPU Shading Language (WGSL).
 
 ## Building the project
 
-First, install the required dependencies on your system. Then use your C++ compiler to build the project.
+First, install the required dependencies on your system. Then use emscripten to build the project.
 
 ```emcmake cmake -B build-web && cmake --build build-web```
 
@@ -25,14 +36,13 @@ First, install the required dependencies on your system. Then use your C++ compi
 After it's built, you can run the project with:
 ```./build-web/app``` or ```npx http-server``` for a web browser. 
 
-
+---
 ## Application structure
 
 ### Shader Code
+The application is based on a simple vertex and fragment shader defined in WGSL. The vertex shader function `vertexMain` takes an input `i`, the vertex index. It uses the index to select a position from a hard-coded array of 2D vertices that define a triangle.
 
-The application is based on a simple vertex and fragment shader defined in WGSL. The vertex shader function `vertexMain` takes an input `i` which is the index of the vertex. It uses the index to select a position from a hard-coded array of 2D vertices which define a triangle.
-
-The fragment shader `fragmentMain` doesn't take any input and simply returns a 4D vector with the color red.
+The fragment shader `fragmentMain` doesn't take any input and returns a 4D vector with the color red.
 
 ### Render Pipeline
 
