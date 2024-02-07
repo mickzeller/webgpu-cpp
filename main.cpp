@@ -5,56 +5,87 @@
 
 wgpu::Instance instance;
 wgpu::Device device;
+wgpu::SwapChain swapChain;
 
 const uint32_t kWidth = 512;
 const uint32_t kHeight = 512;
 
+void SetupSwapChain(wgpu::Surface surface) {
+    wgpu::SwapChainDescriptor scDesc{
+            .usage = wgpu::TextureUsage::RenderAttachment,
+            .format = wgpu::TextureFormat::BGRA8Unorm,
+            .width = kWidth,
+            .height = kHeight,
+            .presentMode = wgpu::PresentMode::Fifo};
+    swapChain = device.CreateSwapChain(surface, &scDesc);
+}
+
+void InitGraphics(wgpu::Surface surface) {
+    SetupSwapChain(surface);
+}
+
+void Render() {
+    // TODO: Render a triangle using WebGPU.
+}
+
 
 void GetDevice(void (*callback)(wgpu::Device)) {
-  instance.RequestAdapter(
-      nullptr,
-      [](WGPURequestAdapterStatus status, WGPUAdapter cAdapter,
-         const char* message, void* userdata) {
-        if (status != WGPURequestAdapterStatus_Success) {
-          exit(0);
-        }
-        wgpu::Adapter adapter = wgpu::Adapter::Acquire(cAdapter);
-        adapter.RequestDevice(
+    instance.RequestAdapter(
             nullptr,
-            [](WGPURequestDeviceStatus status, WGPUDevice cDevice,
-               const char* message, void* userdata) {
-              wgpu::Device device = wgpu::Device::Acquire(cDevice);
-              device.SetUncapturedErrorCallback(
-                  [](WGPUErrorType type, const char* message, void* userdata) {
-                    std::cout << "Error: " << type << " - message: " << message;
-                  },
-                  nullptr);
-              reinterpret_cast<void (*)(wgpu::Device)>(userdata)(device);
+            [](WGPURequestAdapterStatus status, WGPUAdapter cAdapter,
+               const char *message, void *userdata) {
+                if (status != WGPURequestAdapterStatus_Success) {
+                    exit(0);
+                }
+                wgpu::Adapter adapter = wgpu::Adapter::Acquire(cAdapter);
+                adapter.RequestDevice(
+                        nullptr,
+                        [](WGPURequestDeviceStatus status, WGPUDevice cDevice,
+                           const char *message, void *userdata) {
+                            wgpu::Device device = wgpu::Device::Acquire(cDevice);
+                            device.SetUncapturedErrorCallback(
+                                    [](WGPUErrorType type, const char *message, void *userdata) {
+                                        std::cout << "Error: " << type << " - message: " << message;
+                                    },
+                                    nullptr);
+                            reinterpret_cast<void (*)(wgpu::Device)>(userdata)(device);
+                        },
+                        userdata);
             },
-            userdata);
-      },
-      reinterpret_cast<void*>(callback));
+            reinterpret_cast<void *>(callback));
 }
 
 void Start() {
-	if (!glfwInit()) {
-		return;
-	}
+    if (!glfwInit()) {
+        return;
+    }
 
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	GLFWwindow* window =
-		glfwCreateWindow(kWidth, kHeight, "WebGPU window", nullptr, nullptr);
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    GLFWwindow *window =
+            glfwCreateWindow(kWidth, kHeight, "WebGPU window", nullptr, nullptr);
 
-	while (!glfwWindowShouldClose(window)) {
-		glfwPollEvents();
-		// TODO: render a triangle using webgpu
-	}
+    while (!glfwWindowShouldClose(window)) {
+        glfwPollEvents();
+        // TODO: render a triangle using webgpu
+    }
+
+    wgpu::Surface surface =
+            wgpu::glfw::CreateSurfaceForWindow(instance, window);
+
+    InitGraphics(surface);
+
+    while (!glfwWindowShouldClose(window)) {
+        glfwPollEvents();
+        Render();
+        swapChain.Present();
+        instance.ProcessEvents();
+    }
 }
 
 int main() {
-  instance = wgpu::CreateInstance();
-  GetDevice([](wgpu::Device dev) {
-    device = dev;
-    Start();
-  });
+    instance = wgpu::CreateInstance();
+    GetDevice([](wgpu::Device dev) {
+        device = dev;
+        Start();
+    });
 }
