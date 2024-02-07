@@ -6,6 +6,8 @@
 wgpu::Instance instance;
 wgpu::Device device;
 wgpu::SwapChain swapChain;
+wgpu::RenderPipeline pipeline;
+
 
 const uint32_t kWidth = 512;
 const uint32_t kHeight = 512;
@@ -20,12 +22,60 @@ void SetupSwapChain(wgpu::Surface surface) {
     swapChain = device.CreateSwapChain(surface, &scDesc);
 }
 
+const char shaderCode[] = R"(
+    @vertex fn vertexMain(@builtin(vertex_index) i : u32) ->
+      @builtin(position) vec4f {
+        const pos = array(vec2f(0, 1), vec2f(-1, -1), vec2f(1, -1));
+        return vec4f(pos[i], 0, 1);
+    }
+    @fragment fn fragmentMain() -> @location(0) vec4f {
+        return vec4f(1, 0, 0, 1);
+    }
+)";
+
+void CreateRenderPipeline() {
+    wgpu::ShaderModuleWGSLDescriptor wgslDesc{};
+    wgslDesc.code = shaderCode;
+
+    wgpu::ShaderModuleDescriptor shaderModuleDescriptor{
+            .nextInChain = &wgslDesc};
+    wgpu::ShaderModule shaderModule =
+            device.CreateShaderModule(&shaderModuleDescriptor);
+
+    wgpu::ColorTargetState colorTargetState{
+            .format = wgpu::TextureFormat::BGRA8Unorm};
+
+    wgpu::FragmentState fragmentState{.module = shaderModule,
+            .targetCount = 1,
+            .targets = &colorTargetState};
+
+    wgpu::RenderPipelineDescriptor descriptor{
+            .vertex = {.module = shaderModule},
+            .fragment = &fragmentState};
+    pipeline = device.CreateRenderPipeline(&descriptor);
+}
+
 void InitGraphics(wgpu::Surface surface) {
     SetupSwapChain(surface);
+    CreateRenderPipeline();
 }
 
 void Render() {
-    // TODO: Render a triangle using WebGPU.
+    wgpu::RenderPassColorAttachment attachment{
+            .view = swapChain.GetCurrentTextureView(),
+            .loadOp = wgpu::LoadOp::Clear,
+            .storeOp = wgpu::StoreOp::Store};
+
+    wgpu::RenderPassDescriptor renderpass{.colorAttachmentCount = 1,
+            .colorAttachments = &attachment};
+
+    wgpu::CommandEncoder encoder = device.CreateCommandEncoder();
+    wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&renderpass);
+    pass.SetPipeline(pipeline);
+    pass.Draw(3);
+    pass.End();
+    wgpu::CommandBuffer commands = encoder.Finish();
+    device.GetQueue().Submit(1, &commands);
 }
 
 
@@ -63,11 +113,6 @@ void Start() {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     GLFWwindow *window =
             glfwCreateWindow(kWidth, kHeight, "WebGPU window", nullptr, nullptr);
-
-    while (!glfwWindowShouldClose(window)) {
-        glfwPollEvents();
-        // TODO: render a triangle using webgpu
-    }
 
     wgpu::Surface surface =
             wgpu::glfw::CreateSurfaceForWindow(instance, window);
