@@ -1,14 +1,17 @@
 #include <GLFW/glfw3.h>
 #include <webgpu/webgpu_cpp.h>
-#include <webgpu/webgpu_glfw.h>
 #include <iostream>
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/emscripten.h>
+#else
+#include <webgpu/webgpu_glfw.h>
+#endif
 
 wgpu::Instance instance;
 wgpu::Device device;
-wgpu::SwapChain swapChain;
 wgpu::RenderPipeline pipeline;
 
-
+wgpu::SwapChain swapChain;
 const uint32_t kWidth = 512;
 const uint32_t kHeight = 512;
 
@@ -20,6 +23,34 @@ void SetupSwapChain(wgpu::Surface surface) {
             .height = kHeight,
             .presentMode = wgpu::PresentMode::Fifo};
     swapChain = device.CreateSwapChain(surface, &scDesc);
+}
+
+void GetDevice(void (*callback)(wgpu::Device)) {
+    instance.RequestAdapter(
+            nullptr,
+            // TODO(https://bugs.chromium.org/p/dawn/issues/detail?id=1892): Use
+            // wgpu::RequestAdapterStatus, wgpu::Adapter, and wgpu::Device.
+            [](WGPURequestAdapterStatus status, WGPUAdapter cAdapter,
+               const char* message, void* userdata) {
+                if (status != WGPURequestAdapterStatus_Success) {
+                    exit(0);
+                }
+                wgpu::Adapter adapter = wgpu::Adapter::Acquire(cAdapter);
+                adapter.RequestDevice(
+                        nullptr,
+                        [](WGPURequestDeviceStatus status, WGPUDevice cDevice,
+                           const char* message, void* userdata) {
+                            wgpu::Device device = wgpu::Device::Acquire(cDevice);
+                            device.SetUncapturedErrorCallback(
+                                    [](WGPUErrorType type, const char* message, void* userdata) {
+                                        std::cout << "Error: " << type << " - message: " << message;
+                                    },
+                                    nullptr);
+                            reinterpret_cast<void (*)(wgpu::Device)>(userdata)(device);
+                        },
+                        userdata);
+            },
+            reinterpret_cast<void*>(callback));
 }
 
 const char shaderCode[] = R"(
@@ -55,11 +86,6 @@ void CreateRenderPipeline() {
     pipeline = device.CreateRenderPipeline(&descriptor);
 }
 
-void InitGraphics(wgpu::Surface surface) {
-    SetupSwapChain(surface);
-    CreateRenderPipeline();
-}
-
 void Render() {
     wgpu::RenderPassColorAttachment attachment{
             .view = swapChain.GetCurrentTextureView(),
@@ -78,31 +104,9 @@ void Render() {
     device.GetQueue().Submit(1, &commands);
 }
 
-
-void GetDevice(void (*callback)(wgpu::Device)) {
-    instance.RequestAdapter(
-            nullptr,
-            [](WGPURequestAdapterStatus status, WGPUAdapter cAdapter,
-               const char *message, void *userdata) {
-                if (status != WGPURequestAdapterStatus_Success) {
-                    exit(0);
-                }
-                wgpu::Adapter adapter = wgpu::Adapter::Acquire(cAdapter);
-                adapter.RequestDevice(
-                        nullptr,
-                        [](WGPURequestDeviceStatus status, WGPUDevice cDevice,
-                           const char *message, void *userdata) {
-                            wgpu::Device device = wgpu::Device::Acquire(cDevice);
-                            device.SetUncapturedErrorCallback(
-                                    [](WGPUErrorType type, const char *message, void *userdata) {
-                                        std::cout << "Error: " << type << " - message: " << message;
-                                    },
-                                    nullptr);
-                            reinterpret_cast<void (*)(wgpu::Device)>(userdata)(device);
-                        },
-                        userdata);
-            },
-            reinterpret_cast<void *>(callback));
+void InitGraphics(wgpu::Surface surface) {
+    SetupSwapChain(surface);
+    CreateRenderPipeline();
 }
 
 void Start() {
@@ -111,20 +115,31 @@ void Start() {
     }
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    GLFWwindow *window =
+    GLFWwindow* window =
             glfwCreateWindow(kWidth, kHeight, "WebGPU window", nullptr, nullptr);
 
-    wgpu::Surface surface =
-            wgpu::glfw::CreateSurfaceForWindow(instance, window);
+#if defined(__EMSCRIPTEN__)
+    wgpu::SurfaceDescriptorFromCanvasHTMLSelector canvasDesc{};
+  canvasDesc.selector = "#canvas";
+
+  wgpu::SurfaceDescriptor surfaceDesc{.nextInChain = &canvasDesc};
+  wgpu::Surface surface = instance.CreateSurface(&surfaceDesc);
+#else
+    wgpu::Surface surface = wgpu::glfw::CreateSurfaceForWindow(instance, window);
+#endif
 
     InitGraphics(surface);
 
+#if defined(__EMSCRIPTEN__)
+    emscripten_set_main_loop(Render, 0, false);
+#else
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         Render();
         swapChain.Present();
         instance.ProcessEvents();
     }
+#endif
 }
 
 int main() {
