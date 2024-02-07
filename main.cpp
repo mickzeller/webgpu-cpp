@@ -4,33 +4,11 @@
 #include <iostream>
 
 wgpu::Instance instance;
-wgpu::SwapChain swapChain;
+wgpu::Device device;
 
 const uint32_t kWidth = 512;
 const uint32_t kHeight = 512;
 
-void Start() {
-	if (!glfwInit()) {
-		return;
-	}
-
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	GLFWwindow* window =
-		glfwCreateWindow(kWidth, kHeight, "WebGPU window", nullptr, nullptr);
-
-	while (!glfwWindowShouldClose(window)) {
-		glfwPollEvents();
-		// TODO: render a triangle using webgpu
-	}
-}
-
-int main() {
-  instance = wgpu::CreateInstance();
-  GetDevice([](wgpu::Device dev) {
-    device = dev;
-    Start();
-  });
-}
 
 void GetDevice(void (*callback)(wgpu::Device)) {
   instance.RequestAdapter(
@@ -56,4 +34,27 @@ void GetDevice(void (*callback)(wgpu::Device)) {
             userdata);
       },
       reinterpret_cast<void*>(callback));
+}
+
+void Start() {
+	if (!glfwInit()) {
+		return;
+	}
+
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+	GLFWwindow* window =
+		glfwCreateWindow(kWidth, kHeight, "WebGPU window", nullptr, nullptr);
+
+	while (!glfwWindowShouldClose(window)) {
+		glfwPollEvents();
+		// TODO: render a triangle using webgpu
+	}
+}
+
+int main() {
+  instance = wgpu::CreateInstance();
+  GetDevice([](wgpu::Device dev) {
+    device = dev;
+    Start();
+  });
 }
